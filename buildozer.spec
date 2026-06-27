@@ -18,4 +18,6 @@ android.permissions = INTERNET
 
 android.api = 33
 
+android.accept_sdk_license = True
+
 spec_version = 2

@@ -1,0 +1,22 @@
+# Buildozer / python-for-android 构建产物
+.buildozer/
+bin/
+*.apk
+*.aab
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Kivy
+.kivy/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db

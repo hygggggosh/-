@@ -1,0 +1,82 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:        # 手动触发（推荐：APK 构建慢，10-15 分钟，push 自动跑浪费 CI 配额）
+  push:
+    branches: [main]
+    paths:
+      - 'main.py'
+      - 'buildozer.spec'
+      - '.github/workflows/build-apk.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'main.py'
+      - 'buildozer.spec'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential ccache git libffi-dev libssl-dev \
+            libltdl-dev libxml2-dev libxslt1-dev zlib1g-dev \
+            openjdk-17-jdk-headless autoconf automake libtool \
+            pkg-config patchelf
+
+      - name: Install buildozer
+        run: |
+          pip install --upgrade pip
+          pip install buildozer cython
+
+      - name: Build APK (debug)
+        env:
+          GRADLE_OPTS: '-Xmx2g'
+          BUILDOZER_BUILD_DIR: ${{ github.workspace }}/.buildozer
+        run: |
+          buildozer -v android debug 2>&1 | tee build.log
+          # 构建失败时输出尾部 200 行方便调试
+          if [ $? -ne 0 ]; then
+            echo "===== BUILD FAILED — last 200 lines of build.log ====="
+            tail -n 200 build.log
+            exit 1
+          fi
+
+      - name: Verify APK exists
+        run: |
+          ls -la bin/
+          APK=$(find bin/ -name "*.apk" | head -1)
+          if [ -z "$APK" ]; then
+            echo "::error::No APK found in bin/"
+            exit 1
+          fi
+          echo "APK_PATH=$APK" >> $GITHUB_ENV
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hermeschat-debug-apk
+          path: ${{ env.APK_PATH }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach APK to workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: warn
+          retention-days: 7
